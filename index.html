@@ -1,219 +1,275 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-<meta charset="UTF-8">
-<title>Advanced Shop</title>
-<script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Pro Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        .product-card:hover { transform: translateY(-5px); transition: 0.3s; }
+        .cart-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+        input, select { border: 1px solid #ddd !important; }
+    </style>
 </head>
-<body class="bg-gray-100 p-4 transition-all">
+<body class="bg-gray-50 text-gray-800 transition-colors duration-300">
 
-<!-- Dark Mode -->
-<button onclick="toggleDark()" class="fixed top-4 right-4 bg-black text-white px-3 py-1 rounded">Dark</button>
+<nav class="bg-white shadow-md p-4 sticky top-0 z-50 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-blue-600">My Pro Shop</h1>
+    <button onclick="toggleDark()" id="themeBtn" class="bg-gray-200 px-4 py-2 rounded-full text-sm">🌙 Dark</button>
+</nav>
 
-<h1 class="text-2xl font-bold text-center mb-4">আমার অনলাইন শপ</h1>
+<div class="max-w-6xl mx-auto p-4">
+    <h2 class="text-2xl font-bold mb-6 border-b-2 border-blue-500 inline-block">আমাদের পণ্যসমূহ</h2>
+    <div id="products" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-<!-- PRODUCTS -->
-<div id="products" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
+        <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h2 class="text-xl font-bold mb-4 flex items-center">🛒 আপনার কার্ট</h2>
+            <div id="cartItems" class="min-h-[100px]"></div>
+            
+            <div class="mt-4 pt-4 border-t">
+                <div class="flex gap-2 mb-3">
+                    <input id="couponInput" placeholder="কুপন কোড" class="border p-2 rounded w-full focus:outline-blue-500">
+                    <button onclick="applyCoupon()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+                </div>
+                <div class="flex justify-between text-lg font-bold">
+                    <span>মোট বিল:</span>
+                    <span><span id="totalPrice">0</span> টাকা</span>
+                </div>
+            </div>
+        </div>
 
-<!-- CART -->
-<div class="mt-6 bg-white p-4 rounded shadow">
-<h2 class="text-xl font-semibold mb-2">কার্ট</h2>
-<div id="cartItems"></div>
+        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-green-500">
+            <h2 class="text-xl font-bold mb-4">অর্ডার নিশ্চিত করুন</h2>
+            <div class="space-y-3">
+                <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 rounded outline-none focus:ring-2 ring-green-200">
+                <input id="phone" type="number" placeholder="মোবাইল নাম্বার" class="w-full p-3 rounded outline-none focus:ring-2 ring-green-200">
+                <select id="paymentMethod" class="w-full p-3 rounded outline-none bg-white">
+                    <option value="">পেমেন্ট মেথড সিলেক্ট করুন</option>
+                    <option value="Bkash">Bkash (Personal)</option>
+                    <option value="Nagad">Nagad (Personal)</option>
+                    <option value="COD">Cash on Delivery</option>
+                </select>
+                <input id="trxid" type="text" placeholder="TrxID (পেমেন্ট করলে দিন)" class="w-full p-3 rounded outline-none">
+                <button onclick="placeOrder()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition">অর্ডার কনফার্ম করুন</button>
+            </div>
+        </div>
+    </div>
 
-<input id="couponInput" placeholder="Coupon Code" class="border p-2 w-full mt-2">
-<button onclick="applyCoupon()" class="bg-blue-600 text-white px-4 py-2 mt-2 w-full">কুপন প্রয়োগ</button>
+    <div class="mt-20 border-t pt-10">
+        <div id="loginBox" class="max-w-sm mx-auto bg-white p-6 rounded shadow">
+            <input id="adminPass" type="password" placeholder="Admin Password" class="w-full border p-2 mb-2 rounded outline-none">
+            <button onclick="loginAdmin()" class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Admin Login</button>
+        </div>
 
-<p class="mt-2">মোট বিল: <span id="totalPrice">0</span> টাকা</p>
+        <div id="adminPanel" class="hidden max-w-lg mx-auto bg-gray-800 text-white p-6 rounded shadow-xl">
+            <h2 class="text-xl font-bold mb-4">Admin Control</h2>
+            <div class="space-y-3 text-black">
+                <input id="adminWhatsapp" placeholder="WhatsApp (e.g. 88017...)" class="w-full p-2 rounded outline-none">
+                <input id="couponCode" placeholder="Promo Code" class="w-full p-2 rounded outline-none">
+                <input id="couponDiscount" type="number" placeholder="Discount %" class="w-full p-2 rounded outline-none">
+                <button onclick="saveAdmin()" class="w-full bg-blue-500 text-white py-2 rounded font-bold hover:bg-blue-600">Save Settings</button>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- ORDER -->
-<div class="mt-6 bg-white p-4 rounded shadow">
-<h2 class="text-xl font-semibold mb-2">অর্ডার তথ্য</h2>
-
-<input id="name" placeholder="আপনার নাম" class="border p-2 w-full mb-2">
-<input id="phone" placeholder="ফোন নাম্বার" class="border p-2 w-full mb-2">
-
-<select id="paymentMethod" class="border p-2 w-full mb-2">
-<option value="">পেমেন্ট মেথড</option>
-<option>Bkash</option>
-<option>Nagad</option>
-<option>Rocket</option>
-<option>Upay</option>
-</select>
-
-<input id="trxid" placeholder="TrxID / Reference" class="border p-2 w-full mb-2">
-
-<button onclick="placeOrder()" class="bg-green-600 text-white px-4 py-2 w-full">অর্ডার কনফার্ম</button>
+<div id="successPopup" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4">
+    <div class="bg-white p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl border-t-8 border-green-500">
+        <div class="text-5xl mb-4">✅</div>
+        <h2 class="text-2xl font-bold text-green-600 mb-2">অর্ডার সফল!</h2>
+        <p class="text-gray-600">ধন্যবাদ! আপনার অর্ডারটি গ্রহণ করা হয়েছে।</p>
+        <button onclick="closePopup()" class="mt-6 bg-gray-800 text-white px-8 py-2 rounded-full hover:bg-black transition">ঠিক আছে</button>
+    </div>
 </div>
 
-<!-- ADMIN LOGIN -->
-<div id="loginBox" class="mt-6 bg-white p-4 rounded shadow">
-<input id="adminPass" type="password" placeholder="Admin Password" class="border p-2 w-full mb-2">
-<button onclick="loginAdmin()" class="bg-red-600 text-white px-4 py-2 w-full">Admin Login</button>
-</div>
-
-<!-- ADMIN PANEL -->
-<div id="adminPanel" class="hidden mt-6 bg-white p-4 rounded shadow">
-<h2 class="text-xl font-semibold mb-2">Admin Panel</h2>
-
-<input id="adminWhatsapp" placeholder="WhatsApp (8801...)" class="border p-2 w-full mb-2">
-<input id="couponCode" placeholder="Coupon Code" class="border p-2 w-full mb-2">
-<input id="couponDiscount" type="number" placeholder="Discount %" class="border p-2 w-full mb-2">
-
-<button onclick="saveAdmin()" class="bg-black text-white px-4 py-2 w-full">সেভ</button>
-</div>
-
-<!-- SUCCESS POPUP -->
-<div id="successPopup" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-<div class="bg-white p-6 rounded text-center">
-<h2 class="text-xl font-bold mb-2">অর্ডার সফল</h2>
-<p>আপনার অর্ডার গ্রহণ করা হয়েছে</p>
-<button onclick="closePopup()" class="bg-green-600 text-white px-4 py-2 mt-3">ঠিক আছে</button>
-</div>
-</div>
-
-<!-- Firebase + JS Code -->
-<script type="module">
-// Import Firebase v9 functions
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
-// Firebase config
+<script>
+/* ================= CONFIGURATION ================= */
 const firebaseConfig = {
-  apiKey: "AIzaSyAvAtKT_1p9n2u7fZogXjhq-gatKv79Vmw",
-  authDomain: "ulm-shop.firebaseapp.com",
-  projectId: "ulm-shop",
-  storageBucket: "ulm-shop.firebasestorage.app",
-  messagingSenderId: "582860639655",
-  appId: "1:582860639655:web:dd4de2e143c762ba7f3a82",
-  measurementId: "G-CR4GP7CGGD"
+    apiKey: "AIzaSyAvAtKT_1p9n2u7fZogXjhq-gatKv79Vmw",
+    authDomain: "ulm-shop.firebaseapp.com",
+    projectId: "ulm-shop",
+    storageBucket: "ulm-shop.firebasestorage.app",
+    messagingSenderId: "582860639655",
+    appId: "1:582860639655:web:dd4de2e143c762ba7f3a82"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Firebase Initialize
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-/* ================= CONFIG ================= */
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbxIsz5bZJc8tK_K0waK0Ztmu8N_d88vDJp5fvgrX_bBkCbasAdjBPmhXg7dt2KRSel_YA/exec";
-const ADMIN_PASSWORD = "1234";
-
-/* ================= DATA ================= */
 const products = [
-  {id:1,name:"Product A",price:500,img:"https://via.placeholder.com/300"},
-  {id:2,name:"Product B",price:750,img:"https://via.placeholder.com/300"},
-  {id:3,name:"Product C",price:300,img:"https://via.placeholder.com/300"}
+    {id:1, name:"Premium T-Shirt", price:550, img:"https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=300"},
+    {id:2, name:"Wireless Headphone", price:1200, img:"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300"},
+    {id:3, name:"Smart Watch", price:2500, img:"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300"}
 ];
 
-let cart=[];
-let discount=0;
-let admin={whatsapp:"",coupon:"",discountPercent:0};
+/* ================= APP STATE ================= */
+let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+let admin = JSON.parse(localStorage.getItem('adminSettings')) || {whatsapp:"8801700000000", coupon:"PROMO10", discountPercent:10};
+let appliedDiscount = 0;
 
-/* ================= DOM REFERENCES ================= */
-const productsDiv = document.getElementById("products");
-const cartItems = document.getElementById("cartItems");
-const totalPrice = document.getElementById("totalPrice");
-const couponInput = document.getElementById("couponInput");
-const adminPass = document.getElementById("adminPass");
-const loginBox = document.getElementById("loginBox");
-const adminPanel = document.getElementById("adminPanel");
-const adminWhatsapp = document.getElementById("adminWhatsapp");
-const couponCode = document.getElementById("couponCode");
-const couponDiscount = document.getElementById("couponDiscount");
-const successPopup = document.getElementById("successPopup");
+/* ================= CORE FUNCTIONS ================= */
 
-/* ================= FUNCTIONS ================= */
-function toggleDark(){
-  document.body.classList.toggle("bg-gray-900");
-  document.body.classList.toggle("text-white");
+function renderProducts() {
+    const pDiv = document.getElementById("products");
+    pDiv.innerHTML = products.map(p => `
+        <div class="bg-white rounded-xl shadow product-card overflow-hidden border border-gray-100">
+            <img src="${p.img}" class="h-48 w-full object-cover">
+            <div class="p-4">
+                <h3 class="font-bold text-lg">${p.name}</h3>
+                <p class="text-blue-600 font-bold">${p.price} টাকা</p>
+                <button onclick="addToCart(${p.id})" class="w-full mt-3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Add to Cart</button>
+            </div>
+        </div>
+    `).join('');
 }
 
-function renderProducts(){
-  productsDiv.innerHTML = "";
-  products.forEach(p=>{
-    productsDiv.innerHTML += `
-      <div class="bg-white p-4 rounded shadow">
-        <img src="${p.img}" class="h-40 w-full object-cover rounded mb-2">
-        <h3 class="font-semibold">${p.name}</h3>
-        <p>${p.price} টাকা</p>
-        <button onclick="addToCart(${p.id})" class="bg-blue-500 text-white px-3 py-1 mt-2">Add</button>
-      </div>
-    `;
-  });
+function addToCart(id) {
+    const product = products.find(p => p.id === id);
+    const existing = cart.find(item => item.id === id);
+    if(existing) {
+        existing.qty += 1;
+    } else {
+        cart.push({...product, qty: 1});
+    }
+    updateCart();
 }
 
-function addToCart(id){
-  cart.push(products.find(p=>p.id===id));
-  renderCart();
+function updateCart() {
+    localStorage.setItem('myCart', JSON.stringify(cart));
+    const cartDiv = document.getElementById("cartItems");
+    
+    if(cart.length === 0) {
+        cartDiv.innerHTML = `<p class="text-gray-400 text-center py-4">কার্ট খালি আছে...</p>`;
+        document.getElementById("totalPrice").innerText = "0";
+        return;
+    }
+
+    let subtotal = 0;
+    cartDiv.innerHTML = cart.map((item, index) => {
+        subtotal += (item.price * item.qty);
+        return `
+            <div class="cart-item flex justify-between items-center px-2">
+                <div>
+                    <p class="font-semibold text-gray-700">${item.name} x ${item.qty}</p>
+                    <p class="text-sm text-blue-500">${item.price * item.qty} টাকা</p>
+                </div>
+                <button onclick="removeItem(${index})" class="text-red-500 hover:bg-red-50 p-2 rounded-full">✖</button>
+            </div>
+        `;
+    }).join('');
+
+    let finalTotal = subtotal - appliedDiscount;
+    document.getElementById("totalPrice").innerText = finalTotal > 0 ? finalTotal : 0;
 }
 
-function renderCart(){
-  cartItems.innerHTML="";
-  let total=0;
-  cart.forEach(p=>{
-    total+=p.price;
-    cartItems.innerHTML += `<p>${p.name} - ${p.price}</p>`;
-  });
-  if(discount>0) total -= discount;
-  totalPrice.innerText = total;
+function removeItem(index) {
+    cart.splice(index, 1);
+    updateCart();
 }
 
-function applyCoupon(){
-  if(couponInput.value === admin.coupon){
-    discount = Math.round(cart.reduce((s,p)=>s+p.price,0)*admin.discountPercent/100);
-    renderCart();
-    alert("Coupon Applied");
-  } else alert("ভুল কুপন");
+function applyCoupon() {
+    const code = document.getElementById("couponInput").value.trim();
+    if(code === admin.coupon) {
+        let subtotal = cart.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+        appliedDiscount = Math.round((subtotal * admin.discountPercent) / 100);
+        alert(`অভিনন্দন! আপনি ${admin.discountPercent}% ডিসকাউন্ট পেয়েছেন।`);
+        updateCart();
+    } else {
+        alert("ভুল কুপন কোড!");
+    }
 }
 
-function saveAdmin(){
-  admin.whatsapp = adminWhatsapp.value;
-  admin.coupon = couponCode.value;
-  admin.discountPercent = Number(couponDiscount.value);
-  alert("Admin সেটিং সেভ হয়েছে");
+/* ================= ORDER SUBMISSION (FIXED) ================= */
+
+async function placeOrder() {
+    const name = document.getElementById("name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const payment = document.getElementById("paymentMethod").value;
+    const trxid = document.getElementById("trxid").value.trim() || "N/A";
+    const total = document.getElementById("totalPrice").innerText;
+
+    // Validation
+    if(!name || !phone || cart.length === 0 || !payment) {
+        alert("দয়া করে নাম, ফোন, পেমেন্ট মেথড এবং কার্ট চেক করুন।");
+        return;
+    }
+
+    const orderData = {
+        customer: name,
+        phone: phone,
+        items: cart.map(i => `${i.name}(${i.qty})`).join(', '),
+        total: total,
+        payment: payment,
+        trxid: trxid,
+        date: new Date().toLocaleString()
+    };
+
+    try {
+        // 1. WhatsApp-এ আগে পাঠান (অর্ডার যেন মিস না হয়)
+        const text = `📦 *নতুন অর্ডার*\n\n👤 নাম: ${orderData.customer}\n📞 ফোন: ${orderData.phone}\n🛒 পণ্য: ${orderData.items}\n💰 মোট: ${orderData.total} টাকা\n💳 পেমেন্ট: ${orderData.payment}\n🆔 TrxID: ${orderData.trxid}\n📅 তারিখ: ${orderData.date}`;
+        window.open(`https://wa.me/${admin.whatsapp}?text=${encodeURIComponent(text)}`);
+
+        // 2. Firebase Database-এ সেভ করা
+        await db.collection("orders").add(orderData);
+
+        // 3. সফল হলে কার্ট খালি করা
+        cart = [];
+        appliedDiscount = 0;
+        localStorage.removeItem('myCart');
+        updateCart();
+        
+        // Success Popup
+        document.getElementById("successPopup").classList.remove("hidden");
+        
+    } catch (error) {
+        console.error("Error:", error);
+        alert("সার্ভার সমস্যা! তবে অর্ডারটি হোয়াটসঅ্যাপে পাঠানো হয়েছে।");
+    }
 }
 
-function loginAdmin(){
-  if(adminPass.value === ADMIN_PASSWORD){
-    loginBox.classList.add("hidden");
-    adminPanel.classList.remove("hidden");
-  } else alert("ভুল পাসওয়ার্ড");
+/* ================= ADMIN LOGIC ================= */
+
+function loginAdmin() {
+    if(document.getElementById("adminPass").value === "1234") {
+        document.getElementById("loginBox").classList.add("hidden");
+        document.getElementById("adminPanel").classList.remove("hidden");
+        // Load admin values
+        document.getElementById("adminWhatsapp").value = admin.whatsapp;
+        document.getElementById("couponCode").value = admin.coupon;
+        document.getElementById("couponDiscount").value = admin.discountPercent;
+    } else {
+        alert("ভুল পাসওয়ার্ড!");
+    }
 }
 
-async function placeOrder(){
-  if(cart.length===0) return alert("কার্ট খালি");
-
-  const order = {
-    name: document.getElementById("name").value,
-    phone: document.getElementById("phone").value,
-    products: cart.map(p=>p.name).join(", "),
-    payment: document.getElementById("paymentMethod").value,
-    trxid: document.getElementById("trxid").value,
-    total: totalPrice.innerText
-  };
-
-  // Google Sheet
-  fetch(SHEET_URL, {method:"POST", body:JSON.stringify(order)});
-
-  // Firebase Firestore
-  try {
-    await addDoc(collection(db, "orders"), {...order, time: serverTimestamp()});
-  } catch(e){
-    console.error("Firebase error:", e);
-  }
-
-  // WhatsApp
-  if(admin.whatsapp) window.open(`https://wa.me/${admin.whatsapp}?text=` + encodeURIComponent(
-    `নতুন অর্ডার\nনাম:${order.name}\nফোন:${order.phone}\nপণ্য:${order.products}\nমোট:${order.total}`
-  ));
-
-  showPopup();
-  cart = []; discount = 0; renderCart();
+function saveAdmin() {
+    admin = {
+        whatsapp: document.getElementById("adminWhatsapp").value.trim(),
+        coupon: document.getElementById("couponCode").value.trim(),
+        discountPercent: Number(document.getElementById("couponDiscount").value)
+    };
+    localStorage.setItem('adminSettings', JSON.stringify(admin));
+    alert("এডমিন সেটিংস সেভ হয়েছে!");
 }
 
-function showPopup(){ successPopup.classList.remove("hidden"); }
-function closePopup(){ successPopup.classList.add("hidden"); }
+function toggleDark() {
+    document.body.classList.toggle("bg-gray-900");
+    document.body.classList.toggle("text-white");
+    const isDark = document.body.classList.contains("bg-gray-900");
+    document.getElementById("themeBtn").innerText = isDark ? "☀️ Light" : "🌙 Dark";
+}
 
+function closePopup() { document.getElementById("successPopup").classList.add("hidden"); }
+
+// Initialize Page
 renderProducts();
+updateCart();
 </script>
 
 </body>
